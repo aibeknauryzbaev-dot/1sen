@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html lang="kk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Мектепке кім бірінші жетеді?</title>
+    <style>
+        /* НЕГІЗГІ ПАРАМЕТРЛЕР */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-user-drag: none;
+        }
+
+        body, html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            font-family: 'Comic Sans MS', 'Chalkboard SE', 'Nunito', sans-serif;
+            background-color: #f0f8ff;
+            touch-action: manipulation;
+        }
+
+        /* ОЙЫН АЛАҢЫ */
+        #game-board {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            background-image: url('fon (2).jpeg');
+            background-size: cover;
+            background-position: center bottom;
+            background-repeat: no-repeat;
+            display: flex;
+        }
+
+        /* ОЙЫНШЫЛАРДЫҢ ЖАРТЫСЫ */
+        .player-side {
+            width: 50%;
+            height: 100%;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            padding-bottom: 3vh;
+        }
+
+        /* КЕЙІПКЕРЛЕР */
+        .avatar {
+            position: absolute;
+            width: 16vh;
+            height: auto;
+            z-index: 10;
+            transition: all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+            filter: drop-shadow(0 15px 15px rgba(0,0,0,0.3));
+            animation: float 3s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+
+        /* СӨЙЛЕМ ШЫҒАТЫН ТАҚТА */
+        .question-box {
+            position: absolute;
+            top: 15%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255, 255, 255, 0.95);
+            border: 6px solid;
+            border-radius: 25px;
+            padding: 2.5vh 3vw;
+            font-size: 4.5vh;
+            font-weight: bold;
+            text-align: center;
+            box-shadow: 0 15px 30px rgba(0,0,0,0.25);
+            width: 85%;
+            z-index: 20;
+            color: #333;
+            transition: transform 0.2s;
+        }
+
+        #p1-box { border-color: #4facfe; }
+        #p2-box { border-color: #ff758c; }
+
+        /* БАСҚАРУ БАТЫРМАЛАРЫ (СХЕМАЛАР) */
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 2vw;
+            width: 100%;
+            z-index: 20;
+            padding: 0 2vw;
+        }
+
+        .schema-btn {
+            flex: 1;
+            height: 12vh;
+            border-radius: 20px;
+            border: 5px solid rgba(255,255,255,0.8);
+            cursor: pointer;
+            box-shadow: 0 10px 0 rgba(0,0,0,0.2), 0 15px 20px rgba(0,0,0,0.3);
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            padding-bottom: 3.5vh;
+            gap: 1vw;
+            transition: all 0.1s;
+        }
+
+        .schema-btn:active {
+            transform: translateY(10px);
+            box-shadow: 0 0 0 rgba(0,0,0,0.2), 0 5px 10px rgba(0,0,0,0.3);
+        }
+
+        #p1-side .schema-btn { background: linear-gradient(to bottom, #4facfe, #00f2fe); }
+        #p2-side .schema-btn { background: linear-gradient(to bottom, #ff7eb3, #ff758c); }
+
+        /* ГРАФИКАЛЫҚ СХЕМА СЫЗЫҚТАРЫ */
+        .schema-word {
+            width: 4vw;
+            height: 0.8vh;
+            background: white;
+            position: relative;
+            border-radius: 5px;
+        }
+
+        .schema-first-word::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            bottom: 0;
+            width: 0.8vh;
+            height: 4vh;
+            background: white;
+            border-radius: 5px;
+        }
+
+        .schema-dot {
+            width: 1.5vh;
+            height: 1.5vh;
+            background: white;
+            border-radius: 50%;
+            margin-bottom: -0.3vh;
+            margin-left: -0.5vw;
+        }
+
+        /* АНИМАЦИЯЛАР (ДҰРЫС / БҰРЫС) */
+        .correct { animation: flashGreen 0.5s; }
+        .wrong { animation: shakeRed 0.5s; }
+
+        @keyframes flashGreen {
+            0%, 100% { filter: brightness(1); }
+            50% { filter: brightness(1.5) hue-rotate(90deg); background: #32cd32 !important; box-shadow: 0 0 30px #32cd32; }
+        }
+
+        @keyframes shakeRed {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-10px); background: #ff4d4d !important; }
+            40%, 80% { transform: translateX(10px); background: #ff4d4d !important; }
+        }
+
+        /* ЖЕҢІС ЭКРАНЫ */
+        #victory-screen {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            color: white;
+            text-align: center;
+        }
+
+        #victory-title {
+            font-size: 8vh;
+            text-transform: uppercase;
+            text-shadow: 0 5px 15px rgba(0,0,0,0.5);
+            margin-bottom: 2vh;
+            animation: popIn 1s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .avatar-winner {
+            width: 30vh;
+            animation: bounce 2s infinite;
+            margin-bottom: 5vh;
+            filter: drop-shadow(0 0 30px rgba(255,255,255,0.8));
+        }
+
+        #restart-btn {
+            background: #ffba08;
+            border: none;
+            border-radius: 50px;
+            padding: 2vh 5vw;
+            font-size: 5vh;
+            font-family: inherit;
+            font-weight: bold;
+            color: #333;
+            cursor: pointer;
+            box-shadow: 0 10px 0 #d00000;
+            transition: all 0.2s;
+        }
+
+        #restart-btn:active {
+            transform: translateY(10px);
+            box-shadow: 0 0 0 #d00000;
+        }
+
+        @keyframes popIn {
+            0% { transform: scale(0.5); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-30px); }
+        }
+
+        /* КОНФЕТТИ */
+        .confetti {
+            position: absolute;
+            width: 15px;
+            height: 15px;
+            background: red;
+            top: -20px;
+            z-index: 99;
+            animation: fall linear forwards;
+        }
+        @keyframes fall {
+            to { transform: translateY(110vh) rotate(720deg); }
+        }
+
+        /* БАСТАПҚЫ ЭКРАН */
+        #start-screen {
+            position: absolute;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(0,0,0,0.6);
+            backdrop-filter: blur(8px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .start-modal {
+            background: white;
+            padding: 4vh 4vw;
+            border-radius: 30px;
+            text-align: center;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+            border: 8px solid #ffba08;
+            max-width: 90%;
+        }
+        .rules { font-size: 3.5vh; color: #555; margin-bottom: 3vh; font-weight: bold;}
+        .players-setup { display: flex; justify-content: space-around; gap: 2vw; margin-bottom: 3vh; }
+        .setup-box {
+            background: #f0f8ff; padding: 2vh 2vw;
+            border-radius: 20px; border: 4px solid #4facfe; flex: 1;
+        }
+        #p2-setup-box { border-color: #ff758c; background: #fff0f5; }
+        .setup-box input[type="text"] {
+            width: 100%; padding: 1.5vh; font-size: 3vh;
+            border: 2px solid #ccc; border-radius: 10px;
+            margin-bottom: 1.5vh; text-align: center; font-family: inherit;
+        }
+        .gender-select { display: flex; justify-content: space-around; font-size: 3vh; }
+        .gender-select label { cursor: pointer; display: flex; align-items: center; gap: 0.5vw; }
+        .gender-select input[type="radio"] { transform: scale(1.5); accent-color: #4facfe; }
+        .start-btn {
+            background: #32cd32; color: white; border: none;
+            padding: 2vh 4vw; font-size: 4vh; border-radius: 50px;
+            cursor: pointer; box-shadow: 0 8px 0 #228b22;
+            font-family: inherit; font-weight: bold; transition: 0.2s;
+        }
+        .start-btn:active { transform: translateY(8px); box-shadow: none; }
+
+        /* КЕРІ БАЙЛАНЫС ПАНЕЛІ (ЖАҢАРТЫЛҒАН) */
+        #feedback-container {
+            position: absolute;
+            top: 2vh;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 50;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        #feedback-toggle-btn {
+            background: #ffba08;
+            border: 3px solid #fff;
+            padding: 1vh 2vw;
+            font-size: 2.5vh;
+            border-radius: 20px;
+            cursor: pointer;
+            font-family: inherit;
+            font-weight: bold;
+            color: #333;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            transition: all 0.2s;
+        }
+
+        #feedback-toggle-btn:active {
+            transform: scale(0.95);
+        }
+
+        #feedback-panel {
+            display: none; /* Бастапқыда жасырын */
+            flex-direction: column;
+            gap: 1vh;
+            background: rgba(255,255,255,0.95);
+            padding: 1.5vh 2vw;
+            border-radius: 15px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.3);
+            border: 3px solid #ddd;
+            margin-top: 1vh;
+        }
+
+        /* Кері байланыс панелінің анимациясы */
+        .show-feedback {
+            display: flex !important;
+            animation: slideDown 0.3s ease-out;
+        }
+
+        @keyframes slideDown {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .fb-btn {
+            border: none; padding: 1vh 1.5vw; font-size: 2vh;
+            border-radius: 15px; cursor: pointer; font-family: inherit;
+            font-weight: bold; display: flex; align-items: center; justify-content: space-between; gap: 1vw;
+            transition: transform 0.1s;
+            width: 100%; /* Батырмалар бірдей енде болуы үшін */
+        }
+        .fb-btn:active { transform: scale(0.95); }
+        .fb-good { background: #d4edda; color: #155724; }
+        .fb-mid { background: #fff3cd; color: #856404; }
+        .fb-bad { background: #f8d7da; color: #721c24; }
+        .fb-cnt { background: rgba(255,255,255,0.7); padding: 0.2vh 0.8vw; border-radius: 10px; margin-left: 0.5vw; display: inline-block; min-width: 3vw; text-align: center;}
+
+        /* ОЙЫНШЫЛАРДЫҢ ЕСІМДЕРІ */
+        .player-name-display {
+            position: absolute; top: 3%; left: 50%; transform: translateX(-50%);
+            font-size: 3.5vh; font-weight: bold; color: white;
+            text-shadow: 2px 2px 0 #000, -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000;
+            z-index: 25; background: rgba(0,0,0,0.4);
+            padding: 0.5vh 2vw; border-radius: 15px; width: auto; white-space: nowrap;
+        }
+
+        #new-players-btn {
+            background: #4facfe; border: none; border-radius: 50px;
+            padding: 2vh 5vw; font-size: 4vh; font-family: inherit;
+            font-weight: bold; color: white; cursor: pointer;
+            box-shadow: 0 10px 0 #0078d7; margin-top: 2vh; transition: all 0.2s;
+        }
+        #new-players-btn:active { transform: translateY(10px); box-shadow: 0 0 0 #0078d7; }
+
+    </style>
+</head>
+<body>
+
+    <!-- БАСТАПҚЫ ЭКРАН (Ережелер мен баптаулар) -->
+    <div id="start-screen">
+        <div class="start-modal">
+            <h1 style="font-size: 6vh; color: #ff4500; margin-bottom: 1vh; text-transform: uppercase; text-shadow: 2px 2px 0px #ffd700;">Мектепке кім бірінші жетеді?</h1>
+            <p class="rules">Ереже: Экрандағы сөйлемді оқып, сөздер санына сәйкес келетін сызбаны басыңыз. Бірінші болып 5 рет дұрыс тапқан оқушы жеңеді!</p>
+            <div class="players-setup">
+                <div class="setup-box">
+                    <h3 style="font-size: 3.5vh; color: #0078d7; margin-bottom: 1vh;">Сол жақ ойыншы</h3>
+                    <input type="text" id="p1-name" placeholder="Атыңыз..." value="Ойыншы 1">
+                    <div class="gender-select">
+                        <label><input type="radio" name="p1-gender" value="ul" checked> 👦 Ұл</label>
+                        <label><input type="radio" name="p1-gender" value="qyz"> 👧 Қыз</label>
+                    </div>
+                </div>
+                <div class="setup-box" id="p2-setup-box">
+                    <h3 style="font-size: 3.5vh; color: #d81b60; margin-bottom: 1vh;">Оң жақ ойыншы</h3>
+                    <input type="text" id="p2-name" placeholder="Атыңыз..." value="Ойыншы 2">
+                    <div class="gender-select">
+                        <label><input type="radio" name="p2-gender" value="ul"> 👦 Ұл</label>
+                        <label><input type="radio" name="p2-gender" value="qyz" checked> 👧 Қыз</label>
+                    </div>
+                </div>
+            </div>
+            <button class="start-btn" onclick="applySettingsAndStart()">ОЙЫНДЫ БАСТАУ</button>
+        </div>
+    </div>
+
+    <div id="game-board">
+        <!-- КЕРІ БАЙЛАНЫС ПАНЕЛІ (ЖАҢАРТЫЛҒАН) -->
+        <div id="feedback-container">
+            <button id="feedback-toggle-btn" onclick="toggleFeedbackPanel()">Кері байланыс 💬</button>
+            <div id="feedback-panel">
+                <button class="fb-btn fb-good" onclick="addFeedback('good')"><span>😊 Түсіндім</span> <span class="fb-cnt" id="fb-good-cnt">0</span></button>
+                <button class="fb-btn fb-mid" onclick="addFeedback('mid')"><span>🤔 Сұрағым бар</span> <span class="fb-cnt" id="fb-mid-cnt">0</span></button>
+                <button class="fb-btn fb-bad" onclick="addFeedback('bad')"><span>😔 Түсінбедім</span> <span class="fb-cnt" id="fb-bad-cnt">0</span></button>
+            </div>
+        </div>
+
+        <!-- ОЙЫНШЫ 1 (ҰЛ БАЛА) -->
+        <div class="player-side" id="p1-side">
+            <div class="player-name-display" id="p1-name-display">Ойыншы 1</div>
+            <div class="question-box" id="p1-box">
+                <span id="p1-text">Сөйлем жүктелуде...</span>
+            </div>
+            
+            <img src="ul.png" class="avatar" id="avatar-p1" alt="Boy Avatar">
+
+            <div class="controls">
+                <!-- 1 сөз -->
+                <button class="schema-btn" onclick="checkAnswer(1, 1, this)">
+                    <div class="schema-word schema-first-word"></div>
+                    <div class="schema-dot"></div>
+                </button>
+                <!-- 2 сөз -->
+                <button class="schema-btn" onclick="checkAnswer(1, 2, this)">
+                    <div class="schema-word schema-first-word"></div>
+                    <div class="schema-word"></div>
+                    <div class="schema-dot"></div>
+                </button>
+                <!-- 3 сөз -->
+                <button class="schema-btn" onclick="checkAnswer(1, 3, this)">
+                    <div class="schema-word schema-first-word"></div>
+                    <div class="schema-word"></div>
+                    <div class="schema-word"></div>
+                    <div class="schema-dot"></div>
+                </button>
+            </div>
+        </div>
+
+        <!-- ОЙЫНШЫ 2 (ҚЫЗ БАЛА) -->
+        <div class="player-side" id="p2-side">
+            <div class="player-name-display" id="p2-name-display">Ойыншы 2</div>
+            <div class="question-box" id="p2-box">
+                <span id="p2-text">Сөйлем жүктелуде...</span>
+            </div>
+            
+            <img src="qyz.png" class="avatar" id="avatar-p2" alt="Girl Avatar">
+
+            <div class="controls">
+                <!-- 1 сөз -->
+                <button class="schema-btn" onclick="checkAnswer(2, 1, this)">
+                    <div class="schema-word schema-first-word"></div>
+                    <div class="schema-dot"></div>
+                </button>
+                <!-- 2 сөз -->
+                <button class="schema-btn" onclick="checkAnswer(2, 2, this)">
+                    <div class="schema-word schema-first-word"></div>
+                    <div class="schema-word"></div>
+                    <div class="schema-dot"></div>
+                </button>
+                <!-- 3 сөз -->
+                <button class="schema-btn" onclick="checkAnswer(2, 3, this)">
+                    <div class="schema-word schema-first-word"></div>
+                    <div class="schema-word"></div>
+                    <div class="schema-word"></div>
+                    <div class="schema-dot"></div>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ЖЕҢІС ЭКРАНЫ -->
+    <div id="victory-screen">
+        <h1 id="victory-title">АЛАҚАЙ!<br>ЖЕҢІС!</h1>
+        <img src="" id="winner-avatar" class="avatar-winner">
+        <button id="restart-btn" onclick="initGame()">Қайта ойнау</button>
+        <button id="new-players-btn" onclick="showStartScreen()">Жаңа ойыншылар</button>
+    </div>
+
+<script>
+    // СӨЗДІК ҚОРЫ (1-сыныпқа арналған)
+    const wordBank = [
+        { text: "Күз.", words: 1 },
+        { text: "Мектеп.", words: 1 },
+        { text: "Қоңырау.", words: 1 },
+        { text: "Оқушы.", words: 1 },
+        { text: "Мен оқушымын.", words: 2 },
+        { text: "Қоңырау соғылды.", words: 2 },
+        { text: "Күз келді.", words: 2 },
+        { text: "Сабақ басталды.", words: 2 },
+        { text: "Мен мектепке келдім.", words: 3 },
+        { text: "Біз сыныпқа кірдік.", words: 3 },
+        { text: "Арай кітап оқыды.", words: 3 },
+        { text: "Оқушылар тақтаға шықты.", words: 3 }
+    ];
+
+    // Ойын жағдайы
+    let p1Score = 0;
+    let p2Score = 0;
+    let p1CurrentQuestion = {};
+    let p2CurrentQuestion = {};
+    let isGameOver = false;
+
+    let p1Name = "Ойыншы 1";
+    let p2Name = "Ойыншы 2";
+    let fbCounts = { good: 0, mid: 0, bad: 0 };
+
+    const winScore = 5;
+
+    // Жол координаталары (қадамдар)
+    // Сол жақ (Ұл) үшін координаталар
+    const pathP1 = [
+        { left: "15%", bottom: "16%" }, // 0
+        { left: "45%", bottom: "25%" }, // 1
+        { left: "25%", bottom: "40%" }, // 2
+        { left: "60%", bottom: "52%" }, // 3
+        { left: "45%", bottom: "66%" }, // 4
+        { left: "80%", bottom: "75%" }  // 5 (Мектеп есігінде)
+    ];
+
+    // Оң жақ (Қыз) үшін координаталар
+    const pathP2 = [
+        { right: "15%", bottom: "16%" }, // 0
+        { right: "45%", bottom: "25%" }, // 1
+        { right: "25%", bottom: "40%" }, // 2
+        { right: "60%", bottom: "52%" }, // 3
+        { right: "45%", bottom: "66%" }, // 4
+        { right: "80%", bottom: "75%" }  // 5 (Мектеп есігінде)
+    ];
+
+    // Дыбыс синтезаторы (Web Audio API) - Сыртқы файлдарды қажет етпейді
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    
+    function playSound(type) {
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        const osc = audioCtx.createOscillator();
+        const gainNode = audioCtx.createGain();
+        osc.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+
+        if (type === 'correct') {
+            // Көңілді дыбыс (Дұрыс)
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(523.25, audioCtx.currentTime); // C5
+            osc.frequency.exponentialRampToValueAtTime(1046.50, audioCtx.currentTime + 0.1); // C6
+            gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.3);
+        } else if (type === 'wrong') {
+            // Қате дыбысы
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(150, audioCtx.currentTime);
+            osc.frequency.linearRampToValueAtTime(100, audioCtx.currentTime + 0.3);
+            gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.3);
+        }
+    }
+
+    function showStartScreen() {
+        document.getElementById('start-screen').style.display = 'flex';
+        document.getElementById('victory-screen').style.display = 'none';
+    }
+
+    function applySettingsAndStart() {
+        // Ойыншылардың атын оқу
+        p1Name = document.getElementById('p1-name').value.trim() || "Ойыншы 1";
+        p2Name = document.getElementById('p2-name').value.trim() || "Ойыншы 2";
+        
+        // Жынысын оқу және суреттерді орнату
+        const p1Gender = document.querySelector('input[name="p1-gender"]:checked').value;
+        const p2Gender = document.querySelector('input[name="p2-gender"]:checked').value;
+        
+        document.getElementById('avatar-p1').src = p1Gender === 'ul' ? 'ul.png' : 'qyz.png';
+        document.getElementById('avatar-p2').src = p2Gender === 'ul' ? 'ul.png' : 'qyz.png';
+        
+        // Есімдерді тақтаға шығару
+        document.getElementById('p1-name-display').innerText = p1Name;
+        document.getElementById('p2-name-display').innerText = p2Name;
+        
+        // Экранды жасырып, ойынды бастау
+        document.getElementById('start-screen').style.display = 'none';
+        
+        // Мобильді құрылғыларда аудио контекстті ояту (егер басылса)
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        
+        initGame();
+    }
+
+    function addFeedback(type) {
+        fbCounts[type]++;
+        const counterSpan = document.getElementById(`fb-${type}-cnt`);
+        counterSpan.innerText = fbCounts[type];
+        
+        // Батырманы сәл анимациялау
+        const btn = counterSpan.parentElement;
+        btn.style.transform = 'scale(1.05)';
+        setTimeout(() => btn.style.transform = 'scale(1)', 150);
+        
+        // (Қосымша) Басқаннан кейін панельді жабуға болады
+        // toggleFeedbackPanel(); 
+    }
+
+    // Кері байланыс панелін ашып/жабу функциясы
+    function toggleFeedbackPanel() {
+        const panel = document.getElementById('feedback-panel');
+        panel.classList.toggle('show-feedback');
+    }
+
+    function initGame() {
+        p1Score = 0;
+        p2Score = 0;
+        isGameOver = false;
+        document.getElementById('victory-screen').style.display = 'none';
+        
+        updateAvatarPosition(1);
+        updateAvatarPosition(2);
+        
+        loadNewQuestion(1);
+        loadNewQuestion(2);
+    }
+
+    function loadNewQuestion(playerNum) {
+        const randomIndex = Math.floor(Math.random() * wordBank.length);
+        const question = wordBank[randomIndex];
+        
+        if (playerNum === 1) {
+            p1CurrentQuestion = question;
+            document.getElementById('p1-text').innerText = question.text;
+            // Анимация үшін
+            const box = document.getElementById('p1-box');
+            box.style.transform = 'translateX(-50%) scale(1.1)';
+            setTimeout(() => box.style.transform = 'translateX(-50%) scale(1)', 200);
+        } else {
+            p2CurrentQuestion = question;
+            document.getElementById('p2-text').innerText = question.text;
+            // Анимация үшін
+            const box = document.getElementById('p2-box');
+            box.style.transform = 'translateX(-50%) scale(1.1)';
+            setTimeout(() => box.style.transform = 'translateX(-50%) scale(1)', 200);
+        }
+    }
+
+    function checkAnswer(playerNum, selectedWords, btnElement) {
+        if (isGameOver) return;
+        
+        const currentQuestion = playerNum === 1 ? p1CurrentQuestion : p2CurrentQuestion;
+        
+        if (selectedWords === currentQuestion.words) {
+            // ДҰРЫС
+            playSound('correct');
+            btnElement.classList.add('correct');
+            setTimeout(() => btnElement.classList.remove('correct'), 500);
+            
+            if (playerNum === 1) {
+                p1Score++;
+                updateAvatarPosition(1);
+                if (p1Score >= winScore) triggerWin(1);
+                else loadNewQuestion(1);
+            } else {
+                p2Score++;
+                updateAvatarPosition(2);
+                if (p2Score >= winScore) triggerWin(2);
+                else loadNewQuestion(2);
+            }
+        } else {
+            // ҚАТЕ
+            playSound('wrong');
+            btnElement.classList.add('wrong');
+            setTimeout(() => btnElement.classList.remove('wrong'), 500);
+        }
+    }
+
+    function updateAvatarPosition(playerNum) {
+        if (playerNum === 1) {
+            const avatar = document.getElementById('avatar-p1');
+            const pos = pathP1[p1Score];
+            avatar.style.left = pos.left;
+            avatar.style.bottom = pos.bottom;
+            avatar.style.transform = `scale(${1 - p1Score * 0.05})`; // алыстаған сайын кішірейеді
+        } else {
+            const avatar = document.getElementById('avatar-p2');
+            const pos = pathP2[p2Score];
+            avatar.style.right = pos.right;
+            avatar.style.bottom = pos.bottom;
+            avatar.style.transform = `scale(${1 - p2Score * 0.05})`;
+        }
+    }
+
+    function triggerWin(winnerNum) {
+        isGameOver = true;
+        const victoryScreen = document.getElementById('victory-screen');
+        const victoryTitle = document.getElementById('victory-title');
+        const winnerImg = document.getElementById('winner-avatar');
+        
+        if (winnerNum === 1) {
+            victoryTitle.innerHTML = `АЛАҚАЙ!<br>${p1Name.toUpperCase()}<br>ЖЕҢІСКЕ ЖЕТТІ!`;
+            winnerImg.src = document.getElementById('avatar-p1').src;
+        } else {
+            victoryTitle.innerHTML = `АЛАҚАЙ!<br>${p2Name.toUpperCase()}<br>ЖЕҢІСКЕ ЖЕТТІ!`;
+            winnerImg.src = document.getElementById('avatar-p2').src;
+        }
+        
+        victoryScreen.style.display = 'flex';
+        createConfetti();
+    }
+
+    function createConfetti() {
+        const colors = ['#fce18a', '#ff726d', '#b48def', '#f4306d', '#4facfe', '#32cd32'];
+        for (let i = 0; i < 100; i++) {
+            let confetti = document.createElement('div');
+            confetti.classList.add('confetti');
+            confetti.style.left = Math.random() * 100 + 'vw';
+            confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+            confetti.style.animationDuration = (Math.random() * 3 + 2) + 's';
+            confetti.style.animationDelay = Math.random() * 2 + 's';
+            document.getElementById('victory-screen').appendChild(confetti);
+            
+            // Жадты тазарту
+            setTimeout(() => {
+                if (confetti.parentNode) confetti.parentNode.removeChild(confetti);
+            }, 6000);
+        }
+    }
+
+    // Ойынды бастау
+    window.onload = () => {
+        showStartScreen();
+        
+        // Мобильді құрылғыларда аудио контекстті ояту үшін
+        document.body.addEventListener('touchstart', function() {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+        }, { once: true });
+        document.body.addEventListener('click', function() {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+        }, { once: true });
+    };
+
+</script>
+</body>
+</html>
